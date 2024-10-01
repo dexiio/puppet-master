@@ -1,0 +1,22 @@
+{
+  "name": "puppet-master",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "chrome-launcher": "^1.1.2",
+    "chrome-remote-interface": "^0.33.2",
+    "playwright": "^1.47.2",
+    "playwright-extra": "^4.3.6",
+    "puppeteer": "^23.4.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
