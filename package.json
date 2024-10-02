@@ -16,8 +16,11 @@
     "chrome-remote-interface": "^0.33.2",
     "playwright": "^1.47.2",
     "playwright-extra": "^4.3.6",
-    "puppeteer": "^23.4.1",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer": "^23.5.0",
+    "puppeteer-core": "^23.5.0",
+    "rebrowser-playwright": "^1.47.100",
+    "rebrowser-playwright-core": "^1.47.100",
+    "rebrowser-puppeteer": "^23.3.100",
+    "rebrowser-puppeteer-core": "^23.3.100"
   }
 }

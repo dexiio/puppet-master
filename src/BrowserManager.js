@@ -1,94 +1,93 @@
-// src/BrowserManager.js
 import axios from "axios";
 import * as chromeLauncher from 'chrome-launcher';
-import puppeteer from 'puppeteer';
-// import puppeteerExtra from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import {asyncWait} from './helpers.js';
 
-// const stealth = StealthPlugin();
-// stealth.enabledEvasions.delete('chrome.app');
-// stealth.enabledEvasions.delete('chrome.csi');
-// stealth.enabledEvasions.delete('chrome.loadTimes');
-// stealth.enabledEvasions.delete('chrome.runtime');
-// stealth.enabledEvasions.delete('iframe.contentWindow');
-// stealth.enabledEvasions.delete('media.codecs');
-// stealth.enabledEvasions.delete('navigator.hardwareConcurrency');
-// stealth.enabledEvasions.delete('navigator.languages');
-// stealth.enabledEvasions.delete('navigator.permissions');
-// stealth.enabledEvasions.delete('navigator.plugins');
-// stealth.enabledEvasions.delete('sourceurl');
-// stealth.enabledEvasions.delete('webgl.vendor');
-// stealth.enabledEvasions.delete('window.outerdimensions');
-// // stealth.enabledEvasions.delete('navigator.webdriver');
-// // stealth.enabledEvasions.delete('user-agent-override');
-// puppeteerExtra.use(stealth);
+async function getPuppeteerInstance(useRebrowser = false) {
+    if (useRebrowser) {
+        return await import('rebrowser-puppeteer');
+    } else {
+        return await import('puppeteer');
+    }
+}
 
 /**
  * @typedef {import('chrome-launcher').LaunchedChrome} LaunchedChrome
  * @typedef {import('puppeteer').Browser} PuppeteerBrowser
  */
 class BrowserManager {
-    constructor() {
+    constructor(useRebrowser) {
+        this.useRebrowser = useRebrowser;
+        this.puppeteer = getPuppeteerInstance(useRebrowser); // Set the puppeteer instance here
+        if (this.useRebrowser) {
+            console.log('Using Rebrowser Puppeteer');
+        }
+
+        /**
+         * @type {boolean}
+         */
+        this.isInitialized = false;
+
         /**
          * @type {LaunchedChrome | null}
          */
         this.chromeInstance = null;
 
-        // /**
-        //  // * @type {PuppeteerBrowser | null}
-        //  * @type {VanillaPuppeteer["launch"] | null}
-        //  */
+        /**
+         * @type {PuppeteerBrowser | null}
+         */
         this.browser = null;
 
         this.options = {
             chromeFlags: [
                 '--no-sandbox', '--no-default-browser-check',
                 '--start-maximized',
-                // '--window-size=1920,1080',
                 '--disable-infobars',
                 '--no-first-run',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-site-isolation-trials',
-                '--disable-web-security',
                 '--disable-search-engine-choice-screen',
-
-                // New
-                '--disable-blink-features=AutomationControlled'
+                '--disable-blink-features=AutomationControlled',
+                '--use-mock-keychain',
             ],
             ignoreDefaultFlags: true,
             logLevel: 'info',
         };
     }
 
-    async initBidi() {
-        try {
-            this.browser = await puppeteer.launch({
-                browser: 'chrome',
-                headless: false,
-                protocol: 'webDriverBiDi',
-                defaultViewport: null,
-
-                args: this.options.chromeFlags,
-                ignoreDefaultArgs: this.options.ignoreDefaultFlags,
-            });
-        } catch (e) {
-            console.error('Error during Puppeteer launch:', e);
+    async initPuppeteer(useBiDiProtocol) {
+        if (this.isInitialized) {
+            console.error('BrowserManager is already initialized');
             return;
         }
 
-        console.log('\nLaunched Chrome with the BiDi Protocol .\n\n');
+        try {
+            this.browser = await (await this.puppeteer).launch({
+                headless: false,
+                defaultViewport: null,
+                protocol: useBiDiProtocol ? 'webDriverBiDi' : 'cdp',
+                args: this.options.chromeFlags,
+                ignoreDefaultArgs: this.options.ignoreDefaultFlags,
+            });
+            this.isInitialized = true;
+        } catch (e) {
+            console.error('Error during Puppeteer launch:', e);
+        }
+
+        console.log('\nConnected to puppeteer chrome instance.\n\n');
     }
 
+    async initPuppeteerWithChromeLauncher() {
+        if (this.isInitialized) {
+            console.error('BrowserManager is already initialized');
+            return;
+        }
 
-    async initChromeLauncher() {
         try {
             this.chromeInstance = await chromeLauncher.launch(this.options);
         } catch (e) {
             console.error('Error during Chrome launch:', e);
         }
-        console.log('Browser launched');
 
         if (!this.chromeInstance.port) {
             console.error('Chrome instance port not found');
@@ -100,17 +99,17 @@ class BrowserManager {
         console.log('Browser Specs:', resp.data);
         const {webSocketDebuggerUrl} = resp.data;
         try {
-            this.browser = await puppeteer.connect({
+            this.browser = await (await this.puppeteer).connect({
                 browserWSEndpoint: webSocketDebuggerUrl,
                 defaultViewport: null,
             });
+            this.isInitialized = true;
         } catch (e) {
             this.chromeInstance.kill();
             console.error('Error during Puppeteer connect:', e);
-            return;
         }
 
-        console.log('\nConnected to Chrome.\n\n');
+        console.log('\nConnected to chrome-launcher chrome instance.\n\n');
     }
 
     /**
