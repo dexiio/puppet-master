@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Undetectable Browser Controller",
+  "version": "1.0",
+  "background": {
+    "service_worker": "background.js",
+    "persistent": true
+  },
+  "permissions": [
+    "scripting",
+    "webRequest",
+    "webRequestBlocking",
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}

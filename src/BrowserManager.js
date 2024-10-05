@@ -1,6 +1,8 @@
 import axios from "axios";
 import * as chromeLauncher from 'chrome-launcher';
 import {asyncWait} from './helpers.js';
+import WebSocket from 'ws';
+import path from 'path';
 
 async function getPuppeteerInstance(useRebrowser = false) {
     if (useRebrowser) {
@@ -17,11 +19,14 @@ async function getPuppeteerInstance(useRebrowser = false) {
 class BrowserManager {
     constructor(useRebrowser) {
         this.useRebrowser = useRebrowser;
-        this.puppeteer = getPuppeteerInstance(useRebrowser); // Set the puppeteer instance here
         if (this.useRebrowser) {
             console.log('Using Rebrowser Puppeteer');
         }
 
+        /**
+         * @type {import('puppeteer')}
+         */
+        this.puppeteer = null
         /**
          * @type {boolean}
          */
@@ -39,7 +44,8 @@ class BrowserManager {
 
         this.options = {
             chromeFlags: [
-                '--no-sandbox', '--no-default-browser-check',
+                '--no-sandbox',
+                '--no-default-browser-check',
                 '--start-maximized',
                 '--disable-infobars',
                 '--no-first-run',
@@ -55,14 +61,56 @@ class BrowserManager {
         };
     }
 
-    async initPuppeteer(useBiDiProtocol) {
+    async init() {
         if (this.isInitialized) {
             console.error('BrowserManager is already initialized');
             return;
         }
+        this.puppeteer = await getPuppeteerInstance(this.useRebrowser);
+    }
+
+    async initExtension() {
+        await this.init();
+
+        const pathToExtension = path.join(process.cwd(), 'src/puppet-master-extension');
+        console.log(`Loading extension at: ${pathToExtension}`);
+        // this.browser = await this.puppeteer.launch({
+        //     headless: false,
+        //     defaultViewport: null,
+        //     args: [
+        //         `--disable-extensions-except=${pathToExtension}`,
+        //         `--load-extension=${pathToExtension}`,
+        //     ],
+        // });
 
         try {
-            this.browser = await (await this.puppeteer).launch({
+            this.options.chromeFlags.push(`--load-extension=${pathToExtension}`);
+            // this.options.chromeFlags.push(`--disable-extensions-except=${pathToExtension}`);
+            // this.options.chromeFlags.push('--remote-debugging-port=0');
+            // this.options.port=0;
+            // this.options.startingUrl = 'https://www.browserscan.net/bot-detection';
+
+            // this.chromeInstance = await chromeLauncher.launch(this.options);
+            this.chromeInstance =  await chromeLauncher.launch(this.options);
+            // await asyncWait(3000);
+        } catch (e) {
+            console.error('Error during Chrome launch:', e);
+        }
+
+        console.log("Chrome instance launched");
+
+
+        // const ws = new WebSocket('ws://localhost:8080');
+        // ws.onopen = (event) => {
+        //     ws.send('alert("Hello from WebSocket!");');
+        // };
+    }
+
+    async initPuppeteer(useBiDiProtocol) {
+        await this.init();
+
+        try {
+            this.browser = await this.puppeteer.launch({
                 headless: false,
                 defaultViewport: null,
                 protocol: useBiDiProtocol ? 'webDriverBiDi' : 'cdp',
@@ -78,10 +126,7 @@ class BrowserManager {
     }
 
     async initPuppeteerWithChromeLauncher() {
-        if (this.isInitialized) {
-            console.error('BrowserManager is already initialized');
-            return;
-        }
+        await this.init();
 
         try {
             this.chromeInstance = await chromeLauncher.launch(this.options);
@@ -99,7 +144,7 @@ class BrowserManager {
         console.log('Browser Specs:', resp.data);
         const {webSocketDebuggerUrl} = resp.data;
         try {
-            this.browser = await (await this.puppeteer).connect({
+            this.browser = await this.puppeteer.connect({
                 browserWSEndpoint: webSocketDebuggerUrl,
                 defaultViewport: null,
             });
@@ -123,6 +168,16 @@ class BrowserManager {
         await asyncWait(500);
 
         return page;
+    }
+
+    async closeBrowser() {
+        await this.browser.close();
+        if (this.chromeInstance) {
+            this.chromeInstance.kill();
+        }
+        this.browser = null;
+        this.chromeInstance = null;
+        this.isInitialized = false;
     }
 }
 
