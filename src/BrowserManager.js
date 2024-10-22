@@ -58,6 +58,7 @@ class BrowserManager {
             ],
             ignoreDefaultFlags: true,
             logLevel: 'info',
+            // userDataDir: "/tmp/chrome-profile",
         };
     }
 
@@ -171,10 +172,11 @@ class BrowserManager {
     }
 
     async closeBrowser() {
-        await this.browser.close();
         if (this.chromeInstance) {
             this.chromeInstance.kill();
         }
+        await this.browser.close();
+
         this.browser = null;
         this.chromeInstance = null;
         this.isInitialized = false;
